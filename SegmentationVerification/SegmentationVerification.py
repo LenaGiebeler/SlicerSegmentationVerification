@@ -5,6 +5,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 import numpy as np
+import random
 
 #
 # SegmentationVerification
@@ -80,6 +81,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
 
     self.ui.nextButton.clicked.connect(self.onNextButton)
     self.ui.previousButton.clicked.connect(self.onPreviousButton)
+    self.ui.viewButton.clicked.connect(self.onViewButton)
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
@@ -256,6 +258,27 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     self.ui.SegmentsTableView.setSelectedSegmentIDs([previousSegmentID])
     segmentationNode.GetDisplayNode().Modified()  # Workaround to make sure visibilities are updated
 
+
+  def onViewButton(self):
+    """
+    Apply requested view.
+    """
+    layout_number = self.ui.viewspinBox.value
+    threed_enabled = self.ui.threedCheckbox.isChecked()
+    twod_enabled = self.ui.twodCheckbox.isChecked()
+    view_names = self.ui.viewNames.text
+    view_names_list = [item.strip() for item in view_names.split(",") if item.strip()]
+    xml_code = self.logic.getLayoutXML(layout_number, threed_enabled, twod_enabled, view_names_list)
+    if xml_code is not None:
+      #customLayoutId=501
+      customLayoutId = random.randint(500, 9999)
+      layoutManager = slicer.app.layoutManager()
+      layoutManager.layoutLogic().GetLayoutNode().AddLayoutDescription(customLayoutId, xml_code)
+      layoutManager.setLayout(customLayoutId)
+
+    
+  
+
   def onSegmentSelectionChanged(self):
     selectedSegmentIDs = self.ui.SegmentsTableView.selectedSegmentIDs()
     if len(selectedSegmentIDs) == 0 or len(selectedSegmentIDs) > 1:
@@ -382,6 +405,66 @@ class SegmentationVerificationLogic(ScriptedLoadableModuleLogic):
     regionBoxLengths = np.zeros(3)
     secondBoundingBox.GetLengths(regionBoxLengths)
     return intersectBoxVolume / firstBoxVolume
+  
+  def getLayoutXML(self, viewNumber, threedCheckbox, twodCheckbox, viewNames):
+    """
+    Returns XML Code for the Layout.
+    :param viewNumber Number of Segmentations:
+    :param twodCheckbox: Enables 2D slice views (Axial, Sagittal, Coronal):
+    :param threedCheckbox Enables 3D for each Segmentation:
+
+    :return String: XML Code for the 3DSlicer Layout
+    """
+    
+    if not threedCheckbox and not twodCheckbox:
+        return None
+
+    layout_xml = '<layout type="vertical" split="true">\n'
+    
+    default_view_names = [f"{i}" for i in range(1, viewNumber + 1)]
+    
+    final_view_names = viewNames[:viewNumber] + default_view_names[len(viewNames):]
+
+    for i in range(viewNumber):
+        view_name = final_view_names[i]
+
+        layout_xml += '    <item>\n'
+        layout_xml += '        <layout type="horizontal" split="true">\n'
+
+        if threedCheckbox:
+            layout_xml += f'''            
+            <item><view class="vtkMRMLViewNode" singletontag="{view_name}">
+                <property name="viewlabel" action="default">{view_name}</property>
+            </view></item>
+            '''
+
+        
+        if twodCheckbox:
+            layout_xml += f'''            
+            <item><view class="vtkMRMLSliceNode" singletontag="Red {view_name}">
+                <property name="orientation" action="default">Axial</property>
+                <property name="viewlabel" action="default">R {view_name}</property>
+                <property name="viewcolor" action="default">#F34A33</property>
+            </view></item>
+            <item><view class="vtkMRMLSliceNode" singletontag="Green {view_name}">
+                <property name="orientation" action="default">Sagittal</property>
+                <property name="viewlabel" action="default">G {view_name}</property>
+                <property name="viewcolor" action="default">#4AF333</property>
+            </view></item>
+            <item><view class="vtkMRMLSliceNode" singletontag="Yellow {view_name}">
+                <property name="orientation" action="default">Coronal</property>
+                <property name="viewlabel" action="default">Y {view_name}</property>
+                <property name="viewcolor" action="default">#F3E833</property>
+            </view></item>
+            '''
+        
+        layout_xml += '        </layout>\n'
+        layout_xml += '    </item>\n'
+
+    layout_xml += '</layout>'
+  
+    return layout_xml
+
 
 #
 # SegmentationVerificationTest

@@ -270,15 +270,14 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     view_names_list = [item.strip() for item in view_names.split(",") if item.strip()]
     xml_code = self.logic.getLayoutXML(layout_number, threed_enabled, twod_enabled, view_names_list)
     if xml_code is not None:
-      #customLayoutId=501
-      customLayoutId = random.randint(500, 9999)
-      layoutManager = slicer.app.layoutManager()
-      layoutManager.layoutLogic().GetLayoutNode().AddLayoutDescription(customLayoutId, xml_code)
-      layoutManager.setLayout(customLayoutId)
+      layoutNode = slicer.util.getNode('*LayoutNode*')
+      if layoutNode.IsLayoutDescription(layoutNode.SlicerLayoutUserView):
+        layoutNode.SetLayoutDescription(layoutNode.SlicerLayoutUserView, xml_code)
+      else:
+        layoutNode.AddLayoutDescription(layoutNode.SlicerLayoutUserView, xml_code)
+      layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
 
     
-  
-
   def onSegmentSelectionChanged(self):
     selectedSegmentIDs = self.ui.SegmentsTableView.selectedSegmentIDs()
     if len(selectedSegmentIDs) == 0 or len(selectedSegmentIDs) > 1:

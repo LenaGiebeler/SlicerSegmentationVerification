@@ -63,7 +63,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
     # "setMRMLScene(vtkMRMLScene*)" slot.
     uiWidget.setMRMLScene(slicer.mrmlScene)
-
+    self.ui.layoutCheckableNodeComboBox.setMRMLScene(slicer.mrmlScene)
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
     self.logic = SegmentationVerificationLogic()
@@ -78,6 +78,12 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
 
     self.ui.segmentationNodeComboBox.currentNodeChanged.connect(self.onSegmentationChanged)
     self.ui.SegmentsTableView.selectionChanged.connect(self.onSegmentSelectionChanged)
+    self.ui.link3DViewCheckBox.clicked.connect(self.onLinkThreeDViewChanged)
+    self.ui.link2DViewCheckBox.clicked.connect(self.onLinkTwoDViewChanged)
+    self.ui.axialCheckBox.clicked.connect(self.onAxialChanged)
+    self.ui.coronalCheckBox.clicked.connect(self.onCoronalChanged)
+    self.ui.sagittalCheckBox.clicked.connect(self.onSagittalChanged)
+
 
     self.ui.nextButton.clicked.connect(self.onNextButton)
     self.ui.previousButton.clicked.connect(self.onPreviousButton)
@@ -161,6 +167,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     self._updatingGUIFromParameterNode = True
 
     self.ui.segmentationNodeComboBox.setCurrentNode(self._parameterNode.GetNodeReference("CurrentSegmentationNode"))
+    self.ui.layoutCheckableNodeComboBox.setCurrentNode(self._parameterNode.GetNodeReference("CurrentSegmentationNode"))
 
     showNeighbors = self._parameterNode.GetParameter("ShowNeighbors")
     self.ui.showNeighborsCheckBox.checked = True if showNeighbors == 'True' else False
@@ -179,6 +186,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
 
     self._parameterNode.SetNodeReferenceID("CurrentSegmentationNode", self.ui.segmentationNodeComboBox.currentNodeID)
+    self._parameterNode.SetNodeReferenceID("CurrentSegmentationNode", self.ui.layoutCheckableNodeComboBox.currentNodeID)
 
     self._parameterNode.SetParameter("ShowNeighbors", 'True' if self.ui.showNeighborsCheckBox.checked else 'False')
 
@@ -263,12 +271,13 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     """
     Apply requested view.
     """
-    layout_number = self.ui.viewspinBox.value
+    qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
+    selected_nodes = self.ui.layoutCheckableNodeComboBox.checkedNodes()
+    view_names = list(set(node.GetName().split(" ")[0] for node in selected_nodes))
+    layout_number = len(view_names)
     threed_enabled = self.ui.threedCheckbox.isChecked()
     twod_enabled = self.ui.twodCheckbox.isChecked()
-    view_names = self.ui.viewNames.text
-    view_names_list = [item.strip() for item in view_names.split(",") if item.strip()]
-    xml_code = self.logic.getLayoutXML(layout_number, threed_enabled, twod_enabled, view_names_list)
+    xml_code = self.logic.getLayoutXML(layout_number, threed_enabled, twod_enabled, view_names)
     if xml_code is not None:
       layoutNode = slicer.util.getNode('*LayoutNode*')
       if layoutNode.IsLayoutDescription(layoutNode.SlicerLayoutUserView):
@@ -276,8 +285,156 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
       else:
         layoutNode.AddLayoutDescription(layoutNode.SlicerLayoutUserView, xml_code)
       layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
+      self.assignSegmentationsToViews(selected_nodes, threed_enabled, twod_enabled)
+      self.enableOptions(threed_enabled,twod_enabled)
+    qt.QApplication.restoreOverrideCursor()
 
+  def assignSegmentationsToViews(self, selectedSegmentations, threed_enabled, twod_enabled):
+    """
+    Load Segmentations and Reference CT Images into Views.
+    """
+    layoutManager = slicer.app.layoutManager()
+    segmentationMapping2D = {}
+
+    for segmentationNode in selectedSegmentations:
+        modelName = segmentationNode.GetName().split(" ")[0]
+        if modelName not in segmentationMapping2D:
+            segmentationMapping2D[modelName] = []
+        segmentationMapping2D[modelName].append(segmentationNode)
+
+    segmentationMapping = {f"View{key}": value for key, value in segmentationMapping2D.items()}
+
+    if threed_enabled:
+        for i in range(layoutManager.threeDViewCount):
+            threeDWidget = layoutManager.threeDWidget(i)
+            threeDView = threeDWidget.threeDView()
+            viewNode = threeDView.mrmlViewNode()
+            viewName = viewNode.GetName()
+            if viewName in segmentationMapping and segmentationMapping[viewName]:
+                for segmentationNode in slicer.util.getNodesByClass("vtkMRMLSegmentationNode"):
+                    displayNode = segmentationNode.GetDisplayNode()
+                    if displayNode and viewNode.GetID() in displayNode.GetViewNodeIDs():
+                        displayNode.RemoveViewNodeID(viewNode.GetID())
+                        displayNode.SetVisibility3D(False)
+
+                for segmentationNode in segmentationMapping[viewName]:
+                    displayNode = segmentationNode.GetDisplayNode()
+                    if displayNode:
+                        displayNode.SetVisibility(True)
+                        displayNode.SetVisibility3D(True)
+                        displayNode.AddViewNodeID(viewNode.GetID())
+                    segmentationNode.CreateClosedSurfaceRepresentation()
+
+            threeDView.resetFocalPoint()
+
+    if twod_enabled:
+      layoutManager = slicer.app.layoutManager()
+      volumeNodes = slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode")
+
+      for sliceViewName in ["Red", "Green", "Yellow"]:
+          for modelName, segmentationNodes in segmentationMapping2D.items():
+              sliceWidget = layoutManager.sliceWidget(f"{sliceViewName} {modelName}")
     
+              viewNode = sliceWidget.mrmlSliceNode()
+              #viewNode.SetSliceVisible(True)
+              viewNodeID = viewNode.GetID()
+
+              for segmentationNode in slicer.util.getNodesByClass("vtkMRMLSegmentationNode"):
+                  shownValues = [segmentation for value in list(segmentationMapping2D.values()) for segmentation in value]
+                  if segmentationNode not in shownValues:
+                      displayNode = segmentationNode.GetDisplayNode()
+                      if displayNode:
+                          displayNode.RemoveViewNodeID(viewNodeID)
+                          displayNode.SetVisibility(False)
+
+              for segmentationNode in segmentationNodes:
+                  displayNode = segmentationNode.GetDisplayNode()
+                  if displayNode:
+                      displayNode.AddViewNodeID(viewNodeID)
+                      displayNode.SetVisibility(True)
+                      displayNode.SetVisibility2DFill(True)
+                      displayNode.SetVisibility2DOutline(True)
+                      displayNode.SetOpacity2DFill(0.5)
+                      displayNode.SetOpacity2DOutline(0.5)
+
+              for segmentationNode in segmentationNodes:
+                  refCT = segmentationNode.GetNodeReference(segmentationNode.GetReferenceImageGeometryReferenceRole())
+                  if refCT:
+                      break
+
+              compositeNode = sliceWidget.sliceLogic().GetSliceCompositeNode()
+              compositeNode.SetBackgroundVolumeID(refCT.GetID())
+              sliceWidget.sliceController().fitSliceToBackground()
+
+  def enableOptions(self, threeD, twoD):
+     self.ui.label_options.setEnabled(True)
+     self.ui.label_linkView.setEnabled(True)
+     if threeD and not twoD:
+        self.ui.link3DViewCheckBox.setEnabled(True)
+        self.ui.link2DViewCheckBox.setDisabled(True)
+        self.ui.label_sliceVisibility.setDisabled(True)
+        self.ui.sagittalCheckBox.setDisabled(True)
+        self.ui.coronalCheckBox.setDisabled(True)
+        self.ui.axialCheckBox.setDisabled(True)
+     elif twoD and not threeD:
+        self.ui.link3DViewCheckBox.setDisabled(True)
+        self.ui.link2DViewCheckBox.setEnabled(True)
+        self.ui.label_sliceVisibility.setDisabled(True)
+        self.ui.sagittalCheckBox.setDisabled(True)
+        self.ui.coronalCheckBox.setDisabled(True)
+        self.ui.axialCheckBox.setDisabled(True)
+     else:
+        self.ui.link3DViewCheckBox.setEnabled(True)
+        self.ui.link2DViewCheckBox.setEnabled(True)
+        self.ui.label_sliceVisibility.setEnabled(True)
+        self.ui.sagittalCheckBox.setEnabled(True)
+        self.ui.coronalCheckBox.setEnabled(True)
+        self.ui.axialCheckBox.setEnabled(True)
+        
+  def onLinkThreeDViewChanged(self):
+    layoutManager = slicer.app.layoutManager()
+    status = self.ui.link3DViewCheckBox.isChecked()
+    for i in range(layoutManager.threeDViewCount):
+      threeDWidget = layoutManager.threeDWidget(i)
+      viewNode = threeDWidget.threeDView().mrmlViewNode()  
+      if status:
+        viewNode.SetLinkedControl(True)
+      else:
+        viewNode.SetLinkedControl(False)
+
+  def onLinkTwoDViewChanged(self):
+    status = self.ui.link2DViewCheckBox.isChecked()
+    sliceCompositeNodes = slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode")
+
+    defaultSliceCompositeNode = slicer.mrmlScene.GetDefaultNodeByClass("vtkMRMLSliceCompositeNode")
+    if not defaultSliceCompositeNode:
+        defaultSliceCompositeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLSliceCompositeNode")
+        defaultSliceCompositeNode.UnRegister(None)
+        slicer.mrmlScene.AddDefaultNode(defaultSliceCompositeNode)
+    sliceCompositeNodes.append(defaultSliceCompositeNode)
+    for sliceCompositeNode in sliceCompositeNodes:
+        sliceCompositeNode.SetLinkedControl(status)
+
+  def onAxialChanged(self):
+    self.toggleSliceIn3D("Axial", "Red")
+
+
+  def onCoronalChanged(self):
+    self.toggleSliceIn3D("Coronal", "Yellow")
+
+  def onSagittalChanged(self):
+    self.toggleSliceIn3D("Sagittal", "Green")
+
+  def toggleSliceIn3D(self, sliceView, sliceColor):
+    layoutManager = slicer.app.layoutManager()
+    status = getattr(self.ui, f"{sliceView.lower()}CheckBox").isChecked()
+
+    for sliceViewName in layoutManager.sliceViewNames():
+      if sliceViewName.startswith(f"{sliceColor} "):
+        controller = layoutManager.sliceWidget(sliceViewName).sliceController()
+        controller.setSliceVisible(status)
+
+      
   def onSegmentSelectionChanged(self):
     selectedSegmentIDs = self.ui.SegmentsTableView.selectedSegmentIDs()
     if len(selectedSegmentIDs) == 0 or len(selectedSegmentIDs) > 1:
@@ -419,13 +576,9 @@ class SegmentationVerificationLogic(ScriptedLoadableModuleLogic):
         return None
 
     layout_xml = '<layout type="vertical" split="true">\n'
-    
-    default_view_names = [f"{i}" for i in range(1, viewNumber + 1)]
-    
-    final_view_names = viewNames[:viewNumber] + default_view_names[len(viewNames):]
 
     for i in range(viewNumber):
-        view_name = final_view_names[i]
+        view_name = viewNames[i]
 
         layout_xml += '    <item>\n'
         layout_xml += '        <layout type="horizontal" split="true">\n'
@@ -437,7 +590,6 @@ class SegmentationVerificationLogic(ScriptedLoadableModuleLogic):
             </view></item>
             '''
 
-        
         if twodCheckbox:
             layout_xml += f'''            
             <item><view class="vtkMRMLSliceNode" singletontag="Red {view_name}">

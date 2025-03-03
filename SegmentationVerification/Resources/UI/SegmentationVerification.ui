@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>315</width>
-    <height>480</height>
+    <width>404</width>
+    <height>569</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -39,35 +39,16 @@
       </widget>
      </item>
      <item>
-      <widget class="QSpinBox" name="viewspinBox">
-       <property name="minimum">
-        <number>1</number>
+      <widget class="qMRMLCheckableNodeComboBox" name="layoutCheckableNodeComboBox">
+       <property name="nodeTypes">
+        <stringlist>
+         <string>vtkMRMLSegmentationNode</string>
+        </stringlist>
        </property>
-       <property name="maximum">
-        <number>8</number>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="viewButton">
-       <property name="text">
-        <string>Apply</string>
+       <property name="noneDisplay">
+        <string>Select a node</string>
        </property>
       </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_view_names">
-     <item>
-      <widget class="QLabel" name="label_view_names">
-       <property name="text">
-        <string>Insert View Names:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="viewNames"/>
      </item>
     </layout>
    </item>
@@ -84,6 +65,120 @@
       <widget class="QCheckBox" name="twodCheckbox">
        <property name="text">
         <string>Enable 2D View</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_4">
+     <item>
+      <widget class="QPushButton" name="viewButton">
+       <property name="text">
+        <string>Apply</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_7">
+     <item>
+      <widget class="QLabel" name="label_options">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="font">
+        <font>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Options:</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_5">
+     <item>
+      <widget class="QLabel" name="label_linkView">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Link Views:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="link3DViewCheckBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Link 3D Views</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="link2DViewCheckBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Link 2D Views</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_sliceVisibility">
+     <item>
+      <widget class="QLabel" name="label_sliceVisibility">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="font">
+        <font>
+         <italic>false</italic>
+        </font>
+       </property>
+       <property name="text">
+        <string>3D View Slice Visibility:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="axialCheckBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Axial</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="sagittalCheckBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Sagittal</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="coronalCheckBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Coronal</string>
        </property>
       </widget>
      </item>
@@ -116,6 +211,9 @@
      </item>
      <item>
       <widget class="qMRMLNodeComboBox" name="segmentationNodeComboBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="nodeTypes">
         <stringlist notr="true">
          <string>vtkMRMLSegmentationNode</string>
@@ -236,6 +334,11 @@
   </layout>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>qMRMLCheckableNodeComboBox</class>
+   <extends>qMRMLNodeComboBox</extends>
+   <header>qMRMLCheckableNodeComboBox.h</header>
+  </customwidget>
   <customwidget>
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>

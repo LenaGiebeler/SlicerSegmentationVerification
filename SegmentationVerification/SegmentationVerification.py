@@ -6,6 +6,7 @@ from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 import numpy as np
 import random
+import os
 
 #
 # SegmentationVerification
@@ -80,6 +81,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     self.ui.volumeNodeComboBox.currentNodeChanged.connect(self.onVolumeChanged)
     self.ui.ModelCheckableComboBox.checkedIndexesChanged.connect(self.onModelChanged)
     self.ui.SegmentsTableView.selectionChanged.connect(self.onSegmentSelectionChanged)
+    self.ui.segmentationTableWidget.selectionModel().selectionChanged.connect(self.onSegmentSelectionChanged_all_models)
     self.ui.link3DViewCheckBox.clicked.connect(self.onLinkThreeDViewChanged)
     self.ui.link2DViewCheckBox.clicked.connect(self.onLinkTwoDViewChanged)
     self.ui.outlineCheckBox.clicked.connect(self.onFillingOutlineChanged)
@@ -89,6 +91,8 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     self.ui.threedCheckbox.clicked.connect(self.onViewButton)
     self.ui.twodCheckbox.clicked.connect(self.onViewButton)
     self.ui.checkBoxVertical.clicked.connect(self.onViewButton)
+    self.ui.nextButton_comparison.clicked.connect(self.onNextButton_comparison)
+    self.ui.previousButton_comparison.clicked.connect(self.onPreviousButton_comparison)
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
@@ -193,6 +197,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
 
     self._parameterNode.EndModify(wasModified)
 
+
   def onSegmentationChanged(self, newSegmentationNode):
     """
     Switch to next segment.
@@ -268,13 +273,24 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     segmentationNode.GetDisplayNode().Modified()  # Workaround to make sure visibilities are updated
 
   def onVolumeChanged(self):
+    
+    if not self._parameterNode:
+        return
+
     currentNodeID = self.ui.volumeNodeComboBox.currentNodeID
+
+    wasModified = self._parameterNode.StartModify()
+    self._parameterNode.SetNodeReferenceID("CurrentVolumeNode", currentNodeID)
+    self._parameterNode.EndModify(wasModified)
+
     if not currentNodeID:
+       self.ui.ModelCheckableComboBox.setEnabled(False)
+       self.ui.label_models.setEnabled(False)
        return
-        
+
     self.ui.ModelCheckableComboBox.setEnabled(True)
     self.ui.label_models.setEnabled(True)
-    selectedVolume = slicer.util.getNode(self.ui.volumeNodeComboBox.currentNodeID)
+    selectedVolume = slicer.util.getNode(currentNodeID)
 
     self.ui.ModelCheckableComboBox.clear()
     unique_segment_names = set()
@@ -289,6 +305,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
 
     for name in sorted(unique_segment_names): 
         self.ui.ModelCheckableComboBox.addItem(name)
+
 
 
   def onModelChanged(self):
@@ -316,16 +333,49 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
         self.onLinkTwoDViewChanged()
         self.ui.OptionsCollapsibleButton.setEnabled(False)
         self.ui.SegmentationCollapsibleButton.setEnabled(False)
-       
+        self.ui.segmentationComparisonCollapsibleButton.setEnabled(False)
+
+  def get_checked_models(self):
+    view_names = []
+    for index in self.ui.ModelCheckableComboBox.checkedIndexes():
+        view_names.append(self.ui.ModelCheckableComboBox.itemText(index.row()))
+    return view_names
+  
+  def get_selected_segmentation_nodes(self, checked_models):
+    segmentationMapping = {}
+    selectedVolume = slicer.util.getNode(self.ui.volumeNodeComboBox.currentNodeID)
+    allSegmentations = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+
+    for checked_model in checked_models:
+        matchingSegmentations = [
+            seg for seg in allSegmentations if seg.GetName().startswith(checked_model) and seg.GetNodeReference(seg.GetReferenceImageGeometryReferenceRole()).GetID() == selectedVolume.GetID()
+        ]
+        
+        if checked_model not in segmentationMapping:
+            segmentationMapping[checked_model] = []
+
+        segmentationMapping[checked_model].extend(matchingSegmentations)
+
+    return segmentationMapping
+  
+  def get_segmentations_for_volume(self):
+    selectedVolume = slicer.util.getNode(self.ui.volumeNodeComboBox.currentNodeID)
+    if not selectedVolume:
+        return []
+    allSegmentations = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+    matchingSegmentations = [
+            seg for seg in allSegmentations if seg.GetNodeReference(seg.GetReferenceImageGeometryReferenceRole()).GetID() == selectedVolume.GetID()
+        ]
+
+    return matchingSegmentations
+
 
   def onViewButton(self):
     """
     Apply requested view.
     """
     qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
-    view_names = []
-    for index in self.ui.ModelCheckableComboBox.checkedIndexes():
-        view_names.append(self.ui.ModelCheckableComboBox.itemText(index.row()))
+    view_names = self.get_checked_models()
     layout_number = len(view_names)
     threed_enabled = self.ui.threedCheckbox.isChecked()
     twod_enabled = self.ui.twodCheckbox.isChecked()
@@ -347,21 +397,8 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     Load Segmentations and Reference CT Images into Views.
     """
     layoutManager = slicer.app.layoutManager()
-    segmentationMapping2D = {}
+    segmentationMapping2D = self.get_selected_segmentation_nodes(view_names)
     selectedVolume = slicer.util.getNode(self.ui.volumeNodeComboBox.currentNodeID)
-
-    allSegmentations = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
-
-    for view_name in view_names:
-        matchingSegmentations = [
-            seg for seg in allSegmentations if seg.GetName().startswith(view_name) and seg.GetNodeReference(seg.GetReferenceImageGeometryReferenceRole()).GetID() == selectedVolume.GetID()
-        ]
-        
-        if view_name not in segmentationMapping2D:
-            segmentationMapping2D[view_name] = []
-
-        segmentationMapping2D[view_name].extend(matchingSegmentations)
-
     segmentationMapping = {f"View{key}": value for key, value in segmentationMapping2D.items()}
 
     if threed_enabled:
@@ -426,9 +463,11 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
         self.ui.link3DViewCheckBox.setChecked(True)
         self.ui.OptionsCollapsibleButton.setEnabled(True)
         self.ui.SegmentationCollapsibleButton.setEnabled(True)
+        self.ui.segmentationComparisonCollapsibleButton.setEnabled(True)
         self.ui.label_segRepresentation.setDisabled(True)
         self.ui.outlineCheckBox.setDisabled(True)
         self.ui.outlineCheckBox.setChecked(False)
+        self.configure_table()
         self.onFillingOutlineChanged()
         self.onLinkTwoDViewChanged()
         self.onLinkThreeDViewChanged()
@@ -438,6 +477,8 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
         self.ui.link3DViewCheckBox.setChecked(False)
         self.ui.OptionsCollapsibleButton.setEnabled(True)
         self.ui.SegmentationCollapsibleButton.setEnabled(True)
+        self.ui.segmentationComparisonCollapsibleButton.setEnabled(True)
+        self.configure_table()
         self.ui.label_segRepresentation.setEnabled(True)
         self.ui.outlineCheckBox.setEnabled(True)
      elif twoD and threeD:
@@ -446,12 +487,15 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
         self.ui.link3DViewCheckBox.setChecked(True)
         self.ui.OptionsCollapsibleButton.setEnabled(True)
         self.ui.SegmentationCollapsibleButton.setEnabled(True)
+        self.ui.segmentationComparisonCollapsibleButton.setEnabled(True)
+        self.configure_table()
         self.ui.label_segRepresentation.setEnabled(True)
         self.ui.outlineCheckBox.setEnabled(True)
         self.onLinkThreeDViewChanged()
      else:
        self.ui.OptionsCollapsibleButton.setEnabled(False)
        self.ui.SegmentationCollapsibleButton.setEnabled(False)
+       self.ui.segmentationComparisonCollapsibleButton.setEnabled(False)
        self.ui.link2DViewCheckBox.setChecked(False)
        self.ui.link3DViewCheckBox.setChecked(False)
        self.ui.outlineCheckBox.setEnabled(False)
@@ -497,8 +541,157 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
             displayNode.SetOpacity2DFill(0.5)
             displayNode.SetVisibility2DOutline(True)
             displayNode.SetOpacity2DOutline(0.5)
-  
 
+
+  def configure_table(self):
+    
+    self.ui.segmentationTableWidget.setColumnCount(5)
+
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+    header_labels = [
+        (qt.QIcon(os.path.join(base_path, "Resources", "Icons", "SlicerVisibleInvisible.png")), ""),
+        (qt.QIcon(os.path.join(base_path, "Resources", "Icons", "SlicerAddTransform.png")), ""),
+        (None, "Opacity"),  
+        (None, "Name"),  
+        (None, "Amount") 
+    ]
+
+    for col, (icon, text) in enumerate(header_labels):
+        if icon:  
+            header_item = qt.QTableWidgetItem(icon, text)
+        else:
+            header_item = qt.QTableWidgetItem(text)
+        
+        self.ui.segmentationTableWidget.setHorizontalHeaderItem(col, header_item)
+
+    header = self.ui.segmentationTableWidget.horizontalHeader()
+
+    header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)  
+    header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)  
+    header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents) 
+
+    header.setSectionResizeMode(4, qt.QHeaderView.ResizeToContents)
+
+    header.setSectionResizeMode(3, qt.QHeaderView.Stretch)
+
+    self.ui.segmentationTableWidget.setHorizontalScrollBarPolicy(qt.Qt.ScrollBarAlwaysOff)
+
+    self.ui.segmentationTableWidget.horizontalHeader().setVisible(True)
+    self.load_segmentation_data()
+
+
+  def extract_structure_name_from_terminology(self, terminology_string):
+    try:
+        parts = terminology_string.split("~")
+        if len(parts) >= 3:
+            subparts = parts[2].split("^")
+            if len(subparts) >= 3:
+                structure_name = subparts[2].strip()
+            else:
+                structure_name = parts[2].strip()
+        else:
+            return "Unknown"
+
+        if len(parts) >= 4:
+            subparts2 = parts[3].split("^")
+            if len(subparts2) >= 3:
+                laterality = subparts2[2].strip()
+                if laterality and laterality not in structure_name:
+                    structure_name += " " + laterality
+        return structure_name
+    except Exception as e:
+        print(f"Fehler bei extract_structure_name_from_terminology: {e}")
+    return "Unknown"
+
+
+  def load_segmentation_data(self):
+
+    view_names = self.get_checked_models()
+    segmentationMapping2D = segmentationMapping2D = self.get_selected_segmentation_nodes(view_names)
+
+    structure_count = {}
+    structure_data = {} 
+
+    for segmentations in segmentationMapping2D.values():
+        for segmentation in segmentations:
+            segmentation_node = slicer.mrmlScene.GetNodeByID(segmentation.GetID())
+            segment_ids = vtk.vtkStringArray()
+            segmentation_node.GetSegmentation().GetSegmentIDs(segment_ids)
+
+            for i in range(segment_ids.GetNumberOfValues()):
+                segment_id = segment_ids.GetValue(i)
+                segment = segmentation_node.GetSegmentation().GetSegment(segment_id)
+                value_ref = vtk.mutable("")
+                if segment.GetTag("TerminologyEntry", value_ref):
+                    terminology_string = value_ref
+                    structure_name = self.extract_structure_name_from_terminology(terminology_string)
+                else:
+                    structure_name = segment.GetName()
+
+
+                visibility = segmentation_node.GetDisplayNode().GetSegmentVisibility(segment_id)
+                opacity = segmentation_node.GetDisplayNode().GetSegmentOpacity3D(segment_id)
+                r, g, b = segment.GetColor()
+
+                if structure_name in structure_count:
+                    structure_count[structure_name] += 1
+                else:
+                    structure_count[structure_name] = 1
+                    structure_data[structure_name] = {
+                        "visibility": visibility,
+                        "opacity": opacity,
+                        "color": (r, g, b)
+                    }
+
+    self.update_segmentation_table(structure_count, structure_data)
+
+
+  def update_segmentation_table(self, structure_count, structure_data):
+
+      self.ui.segmentationTableWidget.setRowCount(len(structure_count))  
+      self.ui.segmentationTableWidget.setSelectionBehavior(qt.QAbstractItemView.SelectRows)  
+      self.ui.segmentationTableWidget.setSelectionMode(qt.QAbstractItemView.SingleSelection)
+      self.ui.segmentationTableWidget.verticalHeader().setVisible(False)
+
+      base_path = os.path.dirname(os.path.abspath(__file__))  
+
+      for row, (structure_name, amount) in enumerate(structure_count.items()):
+          data = structure_data[structure_name]
+
+          background_color = qt.QColor(50, 50, 50) if row % 2 == 0 else qt.QColor(30, 30, 30)
+
+          visibility_icon_path = os.path.join(base_path, "Resources", "Icons", "SlicerVisible.png") \
+              if data["visibility"] else os.path.join(base_path, "Resources", "Icons", "SlicerInvisible.png")
+
+          icon_item = qt.QTableWidgetItem()
+          icon_item.setIcon(qt.QIcon(visibility_icon_path))
+          icon_item.setBackground(background_color)
+          self.ui.segmentationTableWidget.setItem(row, 0, icon_item)
+
+          color_label = qt.QLabel()
+          pixmap = qt.QPixmap(16, 16)
+          pixmap.fill(qt.QColor(int(data["color"][0] * 255), int(data["color"][1] * 255), int(data["color"][2] * 255)))
+          color_label.setPixmap(pixmap)
+          color_label.setAlignment(qt.Qt.AlignCenter)
+
+          color_label.setStyleSheet(f"background-color: rgb({background_color.red()}, {background_color.green()}, {background_color.blue()});")
+
+          self.ui.segmentationTableWidget.setCellWidget(row, 1, color_label)
+
+          opacity_item = qt.QTableWidgetItem(f"{data['opacity']:.2f}")
+          opacity_item.setBackground(background_color)
+          self.ui.segmentationTableWidget.setItem(row, 2, opacity_item)
+
+          name_item = qt.QTableWidgetItem(structure_name)
+          name_item.setBackground(background_color)
+          self.ui.segmentationTableWidget.setItem(row, 3, name_item)
+
+          amount_item = qt.QTableWidgetItem(str(amount))
+          amount_item.setBackground(background_color)
+          self.ui.segmentationTableWidget.setItem(row, 4, amount_item)
+
+      self.ui.segmentationTableWidget.viewport().update()
 
   def setSegmentationNodeComboBox(self):
       '''
@@ -518,6 +711,116 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
       for segNode in filtered_segmentations:
           self.ui.segmentationNodeComboBox.addNode(segNode)
     '''
+      
+  def showWholeSegmentation(self):
+    allSegmentations = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+
+    for segmentation_node in allSegmentations:
+        displayNode = segmentation_node.GetDisplayNode()
+        displayNode.SetAllSegmentsVisibility(True)
+
+    base_path = os.path.dirname(os.path.abspath(__file__))  
+
+    visible_icon_path = os.path.join(base_path, "Resources", "Icons", "SlicerVisible.png")
+
+    row_count = self.ui.segmentationTableWidget.rowCount
+    for row in range(row_count):
+        icon_item = self.ui.segmentationTableWidget.item(row, 0)
+        icon_item.setIcon(qt.QIcon(visible_icon_path))
+
+        
+
+  def onSegmentSelectionChanged_all_models(self):
+
+    selected_items = self.ui.segmentationTableWidget.selectedItems()
+    if not selected_items:
+        return 
+
+    selected_row = selected_items[0].row()
+    selectedSegmentName = self.ui.segmentationTableWidget.item(selected_row, 3).text()
+
+    qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
+
+    allSegmentations = self.get_segmentations_for_volume()
+    for segmentation_node in allSegmentations:
+        displayNode = segmentation_node.GetDisplayNode()
+        displayNode.SetAllSegmentsVisibility(False)
+        segment_ids = vtk.vtkStringArray()
+        segmentation_node.GetSegmentation().GetSegmentIDs(segment_ids)
+
+        for i in range(segment_ids.GetNumberOfValues()):
+            segment_id = segment_ids.GetValue(i)
+            segment = segmentation_node.GetSegmentation().GetSegment(segment_id)
+
+            value_ref = vtk.mutable("")
+            if segment.GetTag("TerminologyEntry", value_ref):
+                terminology_string = value_ref
+                structure_name = self.extract_structure_name_from_terminology(terminology_string)
+            else:
+                structure_name = segment.GetName()
+
+            if structure_name == selectedSegmentName:
+                new_visibility = not displayNode.GetSegmentVisibility(segment_id)
+                displayNode.SetSegmentVisibility(segment_id, new_visibility)
+                displayNode.SetSegmentVisibility(segment_id, True)
+
+    qt.QApplication.restoreOverrideCursor()
+    base_path = os.path.dirname(os.path.abspath(__file__))  
+
+    visible_icon_path = os.path.join(base_path, "Resources", "Icons", "SlicerVisible.png")
+    invisible_icon_path = os.path.join(base_path, "Resources", "Icons", "SlicerInvisible.png")
+
+    row_count = self.ui.segmentationTableWidget.rowCount
+    icon_column = 0
+
+    for row in range(row_count):
+        icon_item = self.ui.segmentationTableWidget.item(row, icon_column)
+        if not icon_item:
+            icon_item = qt.QTableWidgetItem()
+            self.ui.segmentationTableWidget.setItem(row, icon_column, icon_item)
+
+        if row == selected_row:
+            icon_item.setIcon(qt.QIcon(visible_icon_path))
+        else:
+            icon_item.setIcon(qt.QIcon(invisible_icon_path))
+
+
+  def onNextButton_comparison(self):
+
+    selected_items = self.ui.segmentationTableWidget.selectedItems()
+    if not selected_items:
+        return
+
+    selected_row = selected_items[0].row()
+    next_row = selected_row + 1
+
+    if next_row < self.ui.segmentationTableWidget.rowCount: 
+        self.ui.segmentationTableWidget.selectRow(next_row)
+        next_items = [self.ui.segmentationTableWidget.item(next_row, col) for col in range(self.ui.segmentationTableWidget.columnCount)]
+        
+        if next_items and next_items[0]:  
+            self.onSegmentSelectionChanged_all_models()
+    else:
+       self.ui.segmentationTableWidget.clearSelection()
+       self.showWholeSegmentation()
+
+  def onPreviousButton_comparison(self):
+    selected_items = self.ui.segmentationTableWidget.selectedItems()
+    if not selected_items:
+        return
+
+    selected_row = selected_items[0].row()
+    next_row = selected_row - 1
+
+    if next_row >= 0: 
+        self.ui.segmentationTableWidget.selectRow(next_row)
+        next_items = [self.ui.segmentationTableWidget.item(next_row, col) for col in range(self.ui.segmentationTableWidget.columnCount)]
+        
+        if next_items and next_items[0]:  
+            self.onSegmentSelectionChanged_all_models()
+    else:
+       self.ui.segmentationTableWidget.clearSelection()
+       self.showWholeSegmentation()
 
   def onSegmentSelectionChanged(self):
     selectedSegmentIDs = self.ui.SegmentsTableView.selectedSegmentIDs()

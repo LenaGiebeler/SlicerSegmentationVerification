@@ -7,6 +7,7 @@ from slicer.util import VTKObservationMixin
 import numpy as np
 import random
 import os
+import json
 
 
 #Restores Layout after saving in mrml file
@@ -102,6 +103,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     # in batch mode, without a graphical user interface.
     self.logic = SegmentationVerificationLogic()
     self._buildSegmentationVolumeMap()
+    self._segmentGroupMapping = {}
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.NodeAddedEvent, self._buildSegmentationVolumeMap)
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.NodeRemovedEvent, self._buildSegmentationVolumeMap)
 
@@ -111,18 +113,43 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
+    self.segModelDialog = slicer.util.loadUI(self.resourcePath('UI/SegModelsDialog.ui'))
+    self.dialogUi = slicer.util.childWidgetVariables(self.segModelDialog)
+    self.segModelDialog.hide()
+
+    self.ui.openModelButton.clicked.connect(self.showSegModelDialog)
+    self.dialogUi.okTableButton.clicked.connect(lambda checked=False: self.segModelDialog.accept())
+
+    self.segGroupDialog = slicer.util.loadUI(self.resourcePath('UI/SegGroupsDialog.ui'))
+    self.dialogGroupUi = slicer.util.childWidgetVariables(self.segGroupDialog)
+    self.segGroupDialog.hide()
+
+    self.ui.openGroupButton.clicked.connect(self.showSegGroupDialog)
+    self.dialogGroupUi.okTableButton.clicked.connect(lambda checked=False: self.segGroupDialog.accept())
+
     self.ui.showNeighborsCheckBox.clicked.connect(self.updateParameterNodeFromGUI)
     self.ui.showNeighboringcheckBoxMultiple.clicked.connect(self.updateParameterNodeFromGUI)
 
     self.ui.segmentationNodeComboBox.currentNodeChanged.connect(self.onSegmentationChanged)
     self.ui.volumeNodeComboBox.currentNodeChanged.connect(self.onVolumeChanged)
     self.ui.ModelCheckableComboBox.checkedIndexesChanged.connect(self.onModelChanged)
+    self.ui.SegmentationsCheckableComboBox.checkedIndexesChanged.connect(self.onModelChanged)
+
+    #self.ui.segmentGroupComboBox.currentTextChanged.connect(self.onSegmentGroupChanged)
+    self.ui.segmentGroupComboBox.currentIndexChanged.connect(self.onSegmentGroupChanged)
     self.ui.SegmentsTableView.selectionChanged.connect(self.onSegmentSelectionChanged)
     self.ui.segmentationTableWidget.selectionModel().selectionChanged.connect(self.onSegmentSelectionChangedMultiple)
     self.ui.link3DViewCheckBox.clicked.connect(self.onLinkThreeDViewChanged)
     self.ui.link2DViewCheckBox.clicked.connect(self.onLinkTwoDViewChanged)
     self.ui.outlineCheckBox.clicked.connect(self.onFillingOutlineChanged)
+    self.dialogGroupUi.addGrouptable.itemChanged.connect(self.onGroupTableItemChanged)
 
+    self.dialogUi.addRowButton.clicked.connect(self.onAddRow)
+    self.dialogUi.deleteRowButton.clicked.connect(self.onDeleteRow)
+    self.dialogUi.modelNametableWidget.itemChanged.connect(self.onModelTableItemChanged)
+
+    self.dialogGroupUi.addRowButton.clicked.connect(self.onAddRowGroup)
+    self.dialogGroupUi.deleteRowButton.clicked.connect(self.onDeleteRowGroup)
     self.ui.nextButton.clicked.connect(self.onNextButton)
     self.ui.previousButton.clicked.connect(self.onPreviousButton)
     self.ui.threedCheckbox.clicked.connect(self.updateLayout)
@@ -202,7 +229,6 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     This method is called whenever parameter node is changed.
     The module GUI is updated to show the current state of the parameter node.
     """
-    #print("Update GUI from Parameter node")
     if self._parameterNode is None or self._updatingGUIFromParameterNode:
       return
 
@@ -250,13 +276,50 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     Enables Options/Tools for comparison 
     """
     self.onVolumeChanged()
+    self._setupModel_GroupTable()
 
+    #Get Checked Segmentation IDs
+    segmentationIDsString = self._parameterNode.GetParameter("SegmentationIDs") or ""
+    if segmentationIDsString:
+        selectedSegIds = segmentationIDsString.split(";")
+    else:
+        selectedSegIds = []
+
+    #Get Checked Model IDS
     modelIDsString = self._parameterNode.GetParameter("ModelIDs") or ""
     if modelIDsString:
         selectedIds = modelIDsString.split(",")
     else:
         selectedIds = []
+
+    savedGroup = self._parameterNode.GetParameter("SelectedGroup")
     
+    comboSegmentations = self.ui.SegmentationsCheckableComboBox.model()
+    for row in range(comboSegmentations.rowCount()):
+        item = comboSegmentations.item(row)
+        itemID = item.text()
+        if itemID in selectedSegIds:
+            item.setCheckState(qt.Qt.Checked)
+        else:
+            item.setCheckState(qt.Qt.Unchecked)
+    
+    #Setup Add Model Table
+    mapping_json = self._parameterNode.GetParameter("ModelKeywordMapping")
+    if not mapping_json:
+       settings = qt.QSettings()
+       mapping_json = settings.value("SegmentationVerification/ModelKeywordMapping", "") or "{}"
+    
+    mapping = json.loads(mapping_json)
+    table = self.dialogUi.modelNametableWidget
+    table.clearContents()
+    table.setRowCount(0)
+    for model, keywords in mapping.items():
+        row = table.rowCount
+        table.insertRow(row)
+        table.setItem(row, 0, qt.QTableWidgetItem(model))
+        table.setItem(row, 1, qt.QTableWidgetItem(",".join(keywords)))
+    
+    #Set Checked Model IDs
     comboModel = self.ui.ModelCheckableComboBox.model()
     for row in range(comboModel.rowCount()):
         item = comboModel.item(row)
@@ -265,12 +328,67 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
             item.setCheckState(qt.Qt.Checked)
         else:
             item.setCheckState(qt.Qt.Unchecked)
+    
+    #Setup Add Group Table
+    group_mapping_json = self._parameterNode.GetParameter("GroupKeywordMapping")
+    if not group_mapping_json:
+       settings = qt.QSettings()
+       group_mapping_json = settings.value("SegmentationVerification/GroupKeywordMapping", "") or "{}"
+    mapping = json.loads(group_mapping_json)
+    table = self.dialogGroupUi.addGrouptable
+    table.clearContents()
+    table.setRowCount(0)
+    for model, keywords in mapping.items():
+        row = table.rowCount
+        table.insertRow(row)
+        table.setItem(row, 0, qt.QTableWidgetItem(model))
+        table.setItem(row, 1, qt.QTableWidgetItem(",".join(keywords)))
+    
+    #Segmentation Group
+    combo = self.ui.segmentGroupComboBox
+    idx = combo.findText(savedGroup)
+
+    combo.setCurrentIndex(idx if idx >= 0 else 0)
+
 
     self.enableOptions((self._parameterNode.GetParameter("Show3D")), (self._parameterNode.GetParameter("Show2D")))
     self.configure_table()
+    self.onSegmentGroupChanged()
 
 
+  def _setupModel_GroupTable(self):
+    table_model = self.dialogUi.modelNametableWidget
+    self.logic.setupAddTables(table_model,["Modelnames", "Keywords"] )
+    
+    table_group = self.dialogGroupUi.addGrouptable
+    self.logic.setupAddTables(table_group,["Groupnames", "Keywords"] )
 
+  def configure_table(self):
+    """
+    Update/Setup Table Layout -> Load Icons etc.
+    """
+    table = self.ui.segmentationTableWidget
+    table.clearContents()
+    #5 colums
+    table.setColumnCount(5)
+    #Icons for header
+    headers = [
+        ( self._icons['header_visible'], ""),
+        (self._icons['header_color'], ""),
+        (None, "Opacity"),  
+        (None, "Name"),  
+        (None, "Number of Segmentations") 
+    ]
+    #Set colum header
+    for col, (icon, text) in enumerate(headers):
+        item = qt.QTableWidgetItem(icon, text) if icon else qt.QTableWidgetItem(text)
+        table.setHorizontalHeaderItem(col, item)
+    hdr = table.horizontalHeader()
+    for c in (0, 1, 2, 4):
+        hdr.setSectionResizeMode(c, qt.QHeaderView.ResizeToContents)
+    hdr.setSectionResizeMode(3, qt.QHeaderView.Stretch)
+    table.setHorizontalScrollBarPolicy(qt.Qt.ScrollBarAlwaysOff)
+    hdr.setVisible(True)
 
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
@@ -292,12 +410,16 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     selectedIds = [ index.data() for index in self.ui.ModelCheckableComboBox.checkedIndexes() ]
     self._parameterNode.SetParameter("ModelIDs", ",".join(selectedIds))
 
+    selectedSegmentationIds = [ index.data() for index in self.ui.SegmentationsCheckableComboBox.checkedIndexes() ]
+    self._parameterNode.SetParameter("SegmentationIDs", ";".join(selectedSegmentationIds))
+
     self._parameterNode.SetParameter("Show3D", "True" if self.ui.threedCheckbox.checked else "False")
     self._parameterNode.SetParameter("Show2D", "True" if self.ui.twodCheckbox.checked else "False")
     self._parameterNode.SetParameter("VerticalLayout", "True" if self.ui.checkBoxVertical.checked else "False")
     self._parameterNode.SetParameter("3DLink", "True" if self.ui.link3DViewCheckBox.checked else "False")
     self._parameterNode.SetParameter("2DLink", "True" if self.ui.link2DViewCheckBox.checked else "False")
     self._parameterNode.SetParameter("OutlineRep", "True" if self.ui.outlineCheckBox.checked else "False")
+    self._parameterNode.SetParameter("SelectedGroup", self.ui.segmentGroupComboBox.currentText)
     sel = self.ui.segmentationTableWidget.selectedItems()
     if not sel:
         return
@@ -385,8 +507,6 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     segmentationNode.GetDisplayNode().Modified()  # Workaround to make sure visibilities are updated
 
 
-
-
   def _buildSegmentationVolumeMap(self, caller=None, event=None):
     """
     Maps Segmentation files to one Volume
@@ -397,10 +517,17 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
         if volRef:
             self._segmentationVolumeMap.setdefault(volRef.GetID(), []).append(seg)
 
+  def showSegModelDialog(self):
+    self.segModelDialog.exec_()
+
+  def showSegGroupDialog(self):
+    self.segGroupDialog.exec_()
+
   def onVolumeChanged(self):
     """
     Shows Segmentation Models for selected Volume in Dropdown 
     """
+
     if not self._parameterNode:
         return
     
@@ -413,25 +540,142 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     if not currentID:
         self.ui.ModelCheckableComboBox.setEnabled(False)
         self.ui.label_models.setEnabled(False)
+        self.ui.label_segmentation.setEnabled(False)
+        self.ui.label_or.setEnabled(False)
+        self.ui.SegmentationsCheckableComboBox.setEnabled(False)
+        self.ui.openModelButton.setEnabled(False)
         return
 
     #Uses prefixes to get Models e.g. Moose - .... is for model Moose
     segs = self.get_segmentations_for_volume()
 
-    prefixes = {seg.GetName().split()[0] for seg in segs}
+    segNames = {seg.GetName() for seg in segs}
 
-    self.ui.ModelCheckableComboBox.clear()
+    self.ui.SegmentationsCheckableComboBox.clear()
+    #Uncheck all Elements in the ModelComboBox
+    combo = self.ui.ModelCheckableComboBox
+    model = combo.model()
+    combo.blockSignals(True)
+    for row in range(model.rowCount()):
+        item = model.item(row)
+        if item is not None:
+            item.setCheckState(qt.Qt.Unchecked)
+    combo.blockSignals(False)
+
     #Display/Load Models in checkable Combo Box
-    for name in sorted(prefixes):
-        self.ui.ModelCheckableComboBox.addItem(name)
-    enabled = bool(prefixes)
+    for name in sorted(segNames):
+        self.ui.SegmentationsCheckableComboBox.addItem(name)
+    enabled = bool(segNames)
     #Enable checkable Combo Box for Segmentations Models + corresponding label 
     self.ui.ModelCheckableComboBox.setEnabled(enabled)
     self.ui.label_models.setEnabled(enabled)
+    self.ui.label_segmentation.setEnabled(enabled)
+    self.ui.label_or.setEnabled(enabled)
+    self.ui.SegmentationsCheckableComboBox.setEnabled(enabled)
+    self.ui.openModelButton.setEnabled(enabled)
     self.ui.segmentationTableWidget.clearSelection()
 
+  def onAddRow(self):
+    table = self.dialogUi.modelNametableWidget
+    self.onAddRowTable(table)
+  
+  def onAddRowGroup(self):
+    table = self.dialogGroupUi.addGrouptable
+    self.onAddRowTable(table)
+     
+  def onAddRowTable(self,table):
+    row = table.rowCount
+    table.insertRow(row)
+    table.setItem(row, 0, qt.QTableWidgetItem(""))
+    table.setItem(row, 1, qt.QTableWidgetItem(""))
+
+    table.setCurrentCell(row, 0)
+    table.editItem(table.item(row, 0))
+     
+  def onDeleteRow(self):
+     table = self.dialogUi.modelNametableWidget
+     self.onDeleteRowTable(table)
+     self.onModelTableItemChanged()
+     self.onModelChanged()
+     
+  def onDeleteRowGroup(self):
+     table = self.dialogGroupUi.addGrouptable
+     self.onDeleteRowTable(table)
+     self.onGroupTableItemChanged()
+     self.onSegmentGroupChanged()
+
+  def onDeleteRowTable(self, table):
+    selection = table.selectionModel().selectedRows()
+    if selection:
+        
+        rows = sorted([idx.row() for idx in selection], reverse=True)
+        for r in rows:
+            table.removeRow(r)
+    else:
+        
+        last = table.rowCount - 1
+        if last >= 0:
+            table.removeRow(last)
+
+  def onModelTableItemChanged(self):
+    mapping = self.logic.readMappingTable(self.dialogUi.modelNametableWidget)
+    combo = self.ui.ModelCheckableComboBox
+    prevChecked = {
+        index.data()
+        for index in combo.checkedIndexes()
+    }
+
+    combo.clear()
+    for name in sorted(mapping.keys()):
+        combo.addItem(name)
+        
+        if name in prevChecked:
+            item = combo.model().item(combo.count - 1)
+            item.setCheckState(qt.Qt.Checked)
+    mapping_json = json.dumps(mapping)
+    self._parameterNode.SetParameter("ModelKeywordMapping", mapping_json)
+    self.saveModelKeywordTable()
 
 
+  def saveModelKeywordTable(self):
+
+    mapping = self.logic.readMappingTable(self.dialogUi.modelNametableWidget)
+    settings = qt.QSettings()
+    settings.setValue("SegmentationVerification/ModelKeywordMapping",
+                      json.dumps(mapping))
+
+
+  def onGroupTableItemChanged(self):
+    mapping = self.logic.readMappingTable(self.dialogGroupUi.addGrouptable)
+    mapping_json = json.dumps(mapping)
+    self._parameterNode.SetParameter("GroupKeywordMapping", mapping_json)
+    self.saveGroupKeywordTable()
+    combo = self.ui.segmentGroupComboBox
+    previous = combo.currentText
+    combo.blockSignals(True)
+    combo.clear()
+    combo.addItem("All")
+    combo.blockSignals(False)
+    if mapping:
+      for name in sorted(mapping.keys()):
+          combo.addItem(name)
+      combo.addItem("Other")
+      
+    
+    if previous:
+        idx = combo.findText(previous)
+        combo.setCurrentIndex(idx if idx >= 0 else 0)
+    else:
+        combo.setCurrentIndex(0)
+    self.loadSegmentationGroups()
+
+  def saveGroupKeywordTable(self):
+    
+    mapping = self.logic.readMappingTable(self.dialogGroupUi.addGrouptable)
+    settings = qt.QSettings()
+    settings.setValue("SegmentationVerification/GroupKeywordMapping",
+                      json.dumps(mapping))
+     
   def onModelChanged(self):
     """
     Enables/Disables Options depending on the selected models 
@@ -440,18 +684,21 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     if not self._parameterNode:
         return
     
-    hasSelection = bool(self.ui.ModelCheckableComboBox.checkedIndexes())
+    hasSelection = bool(self.ui.ModelCheckableComboBox.checkedIndexes() or self.ui.SegmentationsCheckableComboBox.checkedIndexes())
 
     #Save Selected Indexes in Parameter Node
+    wasModified = self._parameterNode.StartModify()
     selectedIds = [ index.data() for index in self.ui.ModelCheckableComboBox.checkedIndexes() ]
     self._parameterNode.SetParameter("ModelIDs", ",".join(selectedIds))
+    selectedSegmentationIds = [ index.data() for index in self.ui.SegmentationsCheckableComboBox.checkedIndexes() ]
+    self._parameterNode.SetParameter("SegmentationIDs", ";".join(selectedSegmentationIds))
+
     #Enables/Disables ui elements dependig if models are checked in the checkable combo box
     for w in (self.ui.threedCheckbox, self.ui.twodCheckbox,
               self.ui.label_views, self.ui.label_layout, self.ui.checkBoxVertical):
         w.setEnabled(hasSelection)
     
     #Enables/Disables threeD checkbox dependig if models are checked in the checkable combo box -> 3D View and 3D Link are activated loading a new Model
-    wasModified = self._parameterNode.StartModify()
     self._parameterNode.SetParameter("Show3D", "True" if hasSelection else "False")
     self._parameterNode.SetParameter("Show2D", self._parameterNode.GetParameter("Show2D") if hasSelection else "False")
     self._parameterNode.SetParameter("OutlineRep", self._parameterNode.GetParameter("OutlineRep") if (self._parameterNode.GetParameter("Show2D") == "True") else "False")
@@ -459,8 +706,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
    
     #Enables/Disables ui elements dependig if models are checked in the checkable combo box
     for btn in (self.ui.OptionsCollapsibleButton,
-                self.ui.SegmentationCollapsibleButton,
-                self.ui.segmentationComparisonCollapsibleButton):
+                self.ui.segmentBySegmentCollapsibleButton):
         btn.setEnabled(hasSelection)
     
     #Update Layout
@@ -469,7 +715,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     self.onLinkThreeDViewChanged()
     self.onLinkTwoDViewChanged()
 
-  def add_loaded_segmentations(self, checked_models):
+  def add_loaded_segmentations(self):
     """
     Stores all segmentation nodes whose Name starts with one of the checked_models in the parameter node
     """
@@ -478,20 +724,60 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
 
     #Get all Segmentations Nodes for checked Models - eg. Moose checked -> All Segmentation Nodes with moose Segmentations are included in segments_to_store
     segs = self.get_segmentations_for_volume()
-    segments_to_store = []
-    for model in checked_models:
-        segments_to_store.extend(
-            [seg for seg in segs if seg.GetName().startswith(model)]
-        )
+    #Get Segmentation Nodes for Segmentation Combo Box
+    selectedSegNames = {
+        idx.data()
+        for idx in self.ui.SegmentationsCheckableComboBox.checkedIndexes()
+    }
+    segments_from_segcombo = [
+        seg for seg in segs
+        if seg.GetName() in selectedSegNames
+    ]
+    #Get Segmentation Nodes for each Selected Model Name
+    fullMapping = self.logic.readMappingTable(self.dialogUi.modelNametableWidget)
 
+    selectedModels = {
+        idx.data()
+        for idx in self.ui.ModelCheckableComboBox.checkedIndexes()
+    }
+    
+    filteredMapping = {
+        model: fullMapping[model]
+        for model in selectedModels
+        if model in fullMapping
+    }
+    segments_from_modelcombo = []
+    for model, keywords in filteredMapping.items():
+        
+        hits = []
+        for seg in segs:
+            name_lower = seg.GetName().lower()
+            if any(kw.lower() in name_lower for kw in keywords):
+                hits.append(seg)
+        # Remove duplicates per model
+        unique_hits = []
+        for seg in hits:
+            if seg not in unique_hits:
+                unique_hits.append(seg)
+        
+        segments_from_modelcombo.extend(unique_hits)
+    
     #Reset LoadedSegmentationModels in parameter Node
     count = self._parameterNode.GetNumberOfNodeReferences("LoadedSegmentationModels")
     for i in range(count-1, -1, -1):
         self._parameterNode.RemoveNthNodeReferenceID("LoadedSegmentationModels", i)
+    
+    count = self._parameterNode.GetNumberOfNodeReferences("LoadedSegmentations")
+    for i in range(count-1, -1, -1):
+        self._parameterNode.RemoveNthNodeReferenceID("LoadedSegmentations", i)
     #Reset Loaded Segmentations for checked Models to LoadedSegmentationModels in parameter Node
     wasModified = self._parameterNode.StartModify()
-    for seg in segments_to_store:
+
+    for seg in segments_from_modelcombo:
         self._parameterNode.AddNodeReferenceID("LoadedSegmentationModels", seg.GetID())
+
+    for seg in segments_from_segcombo:
+        self._parameterNode.AddNodeReferenceID("LoadedSegmentations", seg.GetID())
 
     self._parameterNode.EndModify(wasModified)
 
@@ -505,28 +791,61 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
 
     #Get all loaded Segmentation Nodes for selected models
     count = self._parameterNode.GetNumberOfNodeReferences("LoadedSegmentationModels")
-    stored_nodes = [
+    stored_nodes_models = [
         self._parameterNode.GetNthNodeReference("LoadedSegmentationModels", i)
         for i in range(count)
         if self._parameterNode.GetNthNodeReference("LoadedSegmentationModels", i) is not None
     ]
+    count = self._parameterNode.GetNumberOfNodeReferences("LoadedSegmentations")
+    stored_nodes_segmentations = [
+        self._parameterNode.GetNthNodeReference("LoadedSegmentations", i)
+        for i in range(count)
+        if self._parameterNode.GetNthNodeReference("LoadedSegmentations", i) is not None
+    ]
+
     #Get all selected Models - Model has to be the prefix of the segmentaion Name
-    prefixes = {seg.GetName().split()[0] for seg in stored_nodes}
-    #Returns dict Model: [segmentationNodes for that Model]
-    return {
-        prefix: [
-            seg for seg in stored_nodes
-            if seg.GetName().split()[0] == prefix
-        ]
-        for prefix in prefixes
+    fullMapping = self.logic.readMappingTable(self.dialogUi.modelNametableWidget)
+
+    checkedModels = {
+        idx.data()
+        for idx in self.ui.ModelCheckableComboBox.checkedIndexes()
     }
+
+    filteredMapping = {
+        model: fullMapping[model]
+        for model in checkedModels
+        if model in fullMapping
+    }
+
+    mapping = {}
+
+    #Create Dict for models
+    for model, keywords in filteredMapping.items():
+        hits = []
+        for seg in stored_nodes_models:
+            name_lower = seg.GetName().lower()
+            if any(kw.lower() in name_lower for kw in keywords):
+                hits.append(seg)
+        if hits:
+            mapping[model] = hits
+    
+    for seg in stored_nodes_segmentations:
+        
+        segName = seg.GetName()
+        
+        mapping[segName] = [seg]
+
+    return mapping
 
   def get_checked_models(self):
     """
     Returns selected Segmentation Model Names from checkable combo box for current/selected Volume
     """
-    return [self.ui.ModelCheckableComboBox.itemText(idx.row())
+    model_names = [self.ui.ModelCheckableComboBox.itemText(idx.row())
             for idx in self.ui.ModelCheckableComboBox.checkedIndexes()]
+    segmentation_names = [self.ui.SegmentationsCheckableComboBox.itemText(idx.row())
+            for idx in self.ui.SegmentationsCheckableComboBox.checkedIndexes()]
+    return model_names + segmentation_names
 
   def get_segmentations_for_volume(self):
     """
@@ -561,7 +880,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     self._parameterNode.SetParameter("Show2D", str(twod_enabled))
     self._parameterNode.EndModify(wasModified)
     #Save LoadedSegmentationNodes in Parameter Node
-    self.add_loaded_segmentations(view_names)
+    self.add_loaded_segmentations()
 
     #Get XML Code for Layout
     xml_code = self.logic.getLayoutXML(layout_number, threed_enabled, twod_enabled, vertical_layout, view_names)
@@ -589,8 +908,7 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     """
     #Enable Collapsible Buttons (Options and Segmentation Comparison)
     for btn in (self.ui.OptionsCollapsibleButton,
-                self.ui.SegmentationCollapsibleButton,
-                self.ui.segmentationComparisonCollapsibleButton):
+                self.ui.segmentBySegmentCollapsibleButton):
         btn.setEnabled(threeD or twoD)
 
     self.ui.link3DViewCheckBox.setEnabled(threeD)
@@ -602,7 +920,8 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
        self.ui.link3DViewCheckBox.setChecked(True)
        self.onLinkThreeDViewChanged()
     if threeD or twoD:
-        self.configure_table()
+       self.loadSegmentationGroups()
+       self.onSegmentGroupChanged()
     if not threeD:
         self.ui.link3DViewCheckBox.setChecked(False)
         self.onLinkThreeDViewChanged()
@@ -625,43 +944,11 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
       segmentationsForVolume = self.get_segmentations_for_volume()
       self.logic._set2DFillOutline((self._parameterNode.GetParameter("OutlineRep") == "True"), segmentationsForVolume)
 
-
-  def configure_table(self):
-    """
-    Update/Setup Table Layout -> Load Icons etc.
-    """
-    table = self.ui.segmentationTableWidget
-    #5 colums
-    table.setColumnCount(5)
-    #Icons for header
-    headers = [
-        ( self._icons['header_visible'], ""),
-        (self._icons['header_color'], ""),
-        (None, "Opacity"),  
-        (None, "Name"),  
-        (None, "Amount") 
-    ]
-    #Set colum header
-    for col, (icon, text) in enumerate(headers):
-        item = qt.QTableWidgetItem(icon, text) if icon else qt.QTableWidgetItem(text)
-        table.setHorizontalHeaderItem(col, item)
-    hdr = table.horizontalHeader()
-    for c in (0, 1, 2, 4):
-        hdr.setSectionResizeMode(c, qt.QHeaderView.ResizeToContents)
-    hdr.setSectionResizeMode(3, qt.QHeaderView.Stretch)
-    table.setHorizontalScrollBarPolicy(qt.Qt.ScrollBarAlwaysOff)
-    hdr.setVisible(True)
-    self.update_segmentation_table()
-
-
-  def update_segmentation_table(self):
+  def _load_structures_in_table(self, counts, info):
     """
     Loads Structure Name, Color, Visibilty and Opacity in the Table for each Segmented Structure contained in one of the loaded segmented structures
     Amount is the number of models that contain that structure
     """
-    mapping = self.get_selected_segmentation_nodes()
-    #Get Amount for each structure and information about visibility, opacity etc.
-    counts, info = self.logic.prepare_segmentation_data(mapping)
     #Setup Table -> Rows, Header etc.
     table = self.ui.segmentationTableWidget
     table.setRowCount(len(counts))
@@ -761,13 +1048,12 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
     """
     tw = self.ui.segmentationTableWidget
     
-    if index < tw.rowCount or index >= 0: 
+    if index < tw.rowCount and index >= 0: 
       tw.selectRow(index)
       self.onSegmentSelectionChangedMultiple()
     else: 
-      tw.clearSelection()
-      self.showWholeSegmentation()
-     
+      self.onSegmentGroupChanged()
+       
 
   def onNextButtonMultiple(self):
     """
@@ -791,6 +1077,103 @@ class SegmentationVerificationWidget(ScriptedLoadableModuleWidget, VTKObservatio
        return
     idx = sel[0].row() - 1
     self._onSegmentationTableSelectionChanged(idx)
+
+  def loadSegmentationGroups(self):
+
+    mapping = self.get_selected_segmentation_nodes()
+    counts, info = self.logic.prepare_segmentation_data(mapping)
+    structureNames = list(counts.keys())
+    savedGroup = self._parameterNode.GetParameter("SelectedGroup")
+
+    group_defs = self.logic.readMappingTable(self.dialogGroupUi.addGrouptable)
+
+    combo = self.ui.segmentGroupComboBox
+    combo.blockSignals(True)
+    combo.clear()
+    combo.addItem("All")
+    combo.blockSignals(False)
+
+    if not group_defs:
+        combo.setCurrentIndex(0)
+        return
+
+    self._segmentGroupMapping = {}
+    groupsPresent = set()
+    for struct in structureNames:
+        name_lower = struct.lower()
+        assigned = False
+        
+        for groupName, keywords in group_defs.items():
+            
+            if any(kw.lower() in name_lower for kw in keywords):
+                self._segmentGroupMapping[struct] = groupName
+                groupsPresent.add(groupName)
+                assigned = True
+                break
+        
+        if not assigned:
+            self._segmentGroupMapping[struct] = "Other"
+    groupsPresent.add("Other")
+
+    
+    for groupName in group_defs:
+        
+        if groupName in groupsPresent:
+            combo.addItem(groupName)
+    combo.addItem("Other")
+
+    idx = combo.findText(savedGroup)
+    combo.setCurrentIndex(idx if idx >= 0 else 0)
+
+
+  def onSegmentGroupChanged(self):
+
+    groupName = self.ui.segmentGroupComboBox.currentText
+    if not groupName:
+       return
+
+    self._parameterNode.SetParameter("SelectedGroup", groupName)
+    nodeMapping = self.get_selected_segmentation_nodes()
+    self.ui.segmentationTableWidget.clearSelection()
+    self.ui.segmentationTableWidget.setCurrentCell(-1, -1)
+    for segList in nodeMapping.values():
+        for segNode in segList:
+            displayNode = segNode.GetDisplayNode()
+            if not displayNode:
+                continue
+            
+            wasMod = displayNode.StartModify()
+            ids = vtk.vtkStringArray()
+            segNode.GetSegmentation().GetSegmentIDs(ids)
+            for i in range(ids.GetNumberOfValues()):
+                sid = ids.GetValue(i)
+                segment = segNode.GetSegmentation().GetSegment(sid)
+                
+                tag = vtk.mutable('')
+                if segment.GetTag('TerminologyEntry', tag):
+                    structName = self.logic.extract_structure_name_from_terminology(tag)
+                else:
+                    structName = segment.GetName()
+                
+                segGroup = self._segmentGroupMapping.get(structName, "Other")
+                
+                visible = (groupName == "All" or segGroup == groupName)
+                displayNode.SetSegmentVisibility(sid, visible)
+                displayNode.SetSegmentOpacity(sid, 1.0)
+            displayNode.EndModify(wasMod)
+
+    counts, info = self.logic.prepare_segmentation_data(nodeMapping)
+    if groupName != "All":
+        
+        filteredCounts = {
+            struct: cnt for struct, cnt in counts.items()
+            if self._segmentGroupMapping.get(struct, "Other") == groupName
+        }
+        
+        filteredInfo = { struct: info[struct] for struct in filteredCounts }
+        counts, info = filteredCounts, filteredInfo
+    self._load_structures_in_table(counts, info)
+     
 
   def onSegmentSelectionChanged(self):
     selectedSegmentIDs = self.ui.SegmentsTableView.selectedSegmentIDs()
@@ -996,6 +1379,45 @@ class SegmentationVerificationLogic(ScriptedLoadableModuleLogic):
           dn.SetVisibility2DOutline(showOutline)
         dn.SetOpacity2DFill(0.5)
         dn.SetOpacity2DOutline(0.5)
+
+  def setupAddTables(self, table, header):
+    table.setColumnCount(len(header))
+    table.setHorizontalHeaderLabels(header)
+
+    header = table.horizontalHeader()
+    header.setSectionResizeMode(0, qt.QHeaderView.Stretch)
+    header.setSectionResizeMode(1, qt.QHeaderView.Stretch)
+    tableWidth = table.viewport().width or 400
+    header.resizeSection(0, int(tableWidth * 0.25))
+    table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
+    table.setHorizontalScrollBarPolicy(qt.Qt.ScrollBarAsNeeded)
+    table.setVerticalScrollBarPolicy(qt.Qt.ScrollBarAlwaysOff)
+
+  def readMappingTable(self, table):
+    mapping = {}
+    for row in range(table.rowCount):
+        
+        keyItem = table.item(row, 0)
+        if not keyItem:
+            continue
+        key = keyItem.text().strip()
+        if not key:
+            continue
+
+        valueItem = table.item(row, 1)
+        if not valueItem:
+            continue
+        keywords = [
+            kw.strip()
+            for kw in valueItem.text().split(',')
+            if kw.strip()
+        ]
+        
+        if not keywords:
+            continue
+
+        mapping[key] = keywords
+    return mapping
 
   def extract_structure_name_from_terminology(self, terminology_string):
     """

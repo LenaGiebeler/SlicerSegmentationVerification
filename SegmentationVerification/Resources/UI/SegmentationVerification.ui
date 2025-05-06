@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>692</width>
-    <height>849</height>
+    <width>1496</width>
+    <height>979</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -27,237 +27,17 @@
     <number>4</number>
    </property>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_8">
-     <item>
-      <widget class="QLabel" name="label_3">
-       <property name="text">
-        <string>Select a Volume:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="qMRMLNodeComboBox" name="volumeNodeComboBox">
-       <property name="nodeTypes">
-        <stringlist notr="true">
-         <string>vtkMRMLScalarVolumeNode</string>
-        </stringlist>
-       </property>
-       <property name="hideChildNodeTypes">
-        <stringlist notr="true"/>
-       </property>
-       <property name="interactionNodeSingletonTag">
-        <string notr="true"/>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_9">
-     <item>
-      <widget class="QLabel" name="label_models">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>Select Segmentation Models: </string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="ctkCheckableComboBox" name="ModelCheckableComboBox">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_view">
-     <item>
-      <widget class="QLabel" name="label_views">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>Instantiate Views:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="threedCheckbox">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>3D Views</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="twodCheckbox">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>2D View</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4">
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_6">
-       <item>
-        <widget class="QLabel" name="label_layout">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="text">
-          <string>Instantiate Vertical Layout (optional):</string>
-         </property>
-        </widget>
-       </item>
-       <item alignment="Qt::AlignLeft">
-        <widget class="QCheckBox" name="checkBoxVertical">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-      </layout>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <spacer name="verticalSpacer_3">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeType">
-      <enum>QSizePolicy::Fixed</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>12</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_7">
-     <item>
-      <widget class="ctkCollapsibleButton" name="OptionsCollapsibleButton">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="text">
-        <string>Options</string>
-       </property>
-       <property name="collapsed">
-        <bool>true</bool>
-       </property>
-       <property name="collapsedHeight">
-        <number>2</number>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_3">
-        <item>
-         <layout class="QVBoxLayout" name="verticalLayout_2">
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_5">
-            <item>
-             <widget class="QLabel" name="label_4">
-              <property name="text">
-               <string>Link Views:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="link3DViewCheckBox">
-              <property name="text">
-               <string>3D Views</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="link2DViewCheckBox">
-              <property name="text">
-               <string>2D Views</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout">
-            <item>
-             <widget class="QLabel" name="label_segRepresentation">
-              <property name="text">
-               <string>Change Segmentation representation to Outline:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="outlineCheckBox">
-              <property name="text">
-               <string/>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
     <layout class="QHBoxLayout" name="horizontalLayout_10">
      <item>
       <widget class="ctkCollapsibleButton" name="SegmentationCollapsibleButton">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string>Segmentation Verification</string>
        </property>
        <property name="collapsed">
-        <bool>true</bool>
+        <bool>false</bool>
        </property>
        <property name="collapsedHeight">
         <number>2</number>
@@ -408,111 +188,43 @@
      <item>
       <widget class="ctkCollapsibleButton" name="segmentationComparisonCollapsibleButton">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string>Segmentation Comparison</string>
        </property>
        <property name="collapsed">
-        <bool>true</bool>
+        <bool>false</bool>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_7">
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_15">
+         <layout class="QHBoxLayout" name="horizontalLayout_17">
           <item>
-           <widget class="QLabel" name="semiTransparent_label">
+           <widget class="QLabel" name="label_3">
             <property name="text">
-             <string>Show neighboring segments semi-transparent:</string>
+             <string>Select a Volume:</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="showNeighboringcheckBoxMultiple">
-            <property name="text">
-             <string/>
+           <widget class="qMRMLNodeComboBox" name="volumeNodeComboBox">
+            <property name="nodeTypes">
+             <stringlist notr="true">
+              <string>vtkMRMLScalarVolumeNode</string>
+             </stringlist>
             </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer_3">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
+            <property name="hideChildNodeTypes">
+             <stringlist notr="true"/>
             </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
+            <property name="interactionNodeSingletonTag">
+             <string notr="true"/>
             </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_13">
-          <item>
-           <widget class="QTableWidget" name="segmentationTableWidget">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>150</height>
-             </size>
-            </property>
-            <property name="columnCount">
-             <number>9</number>
-            </property>
-            <attribute name="horizontalHeaderVisible">
-             <bool>true</bool>
-            </attribute>
-            <attribute name="horizontalHeaderCascadingSectionResizes">
-             <bool>true</bool>
-            </attribute>
-            <attribute name="horizontalHeaderDefaultSectionSize">
-             <number>168</number>
-            </attribute>
-            <column>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>../Icons/SlicerVisibleInvisible.png</normaloff>../Icons/SlicerVisibleInvisible.png</iconset>
-             </property>
-            </column>
-            <column>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>../Icons/SlicerAddTransform.png</normaloff>../Icons/SlicerAddTransform.png</iconset>
-             </property>
-            </column>
-            <column>
-             <property name="text">
-              <string>Opacity</string>
-             </property>
-            </column>
-            <column>
-             <property name="text">
-              <string>Name</string>
-             </property>
-            </column>
-            <column>
-             <property name="text">
-              <string>Amount</string>
-             </property>
-            </column>
-            <column/>
-            <column/>
-            <column/>
-            <column/>
            </widget>
           </item>
          </layout>
         </item>
         <item>
-         <spacer name="verticalSpacer_4">
+         <spacer name="verticalSpacer_5">
           <property name="orientation">
            <enum>Qt::Vertical</enum>
           </property>
@@ -528,19 +240,415 @@
          </spacer>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_14">
+         <layout class="QHBoxLayout" name="horizontalLayout_15">
           <item>
-           <widget class="QPushButton" name="previousButton_comparison">
+           <widget class="QLabel" name="label_segmentation">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
-             <string>Previous</string>
+             <string>Select Segmentations:</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="nextButton_comparison">
-            <property name="text">
-             <string>Next</string>
+           <widget class="ctkCheckableComboBox" name="SegmentationsCheckableComboBox">
+            <property name="enabled">
+             <bool>false</bool>
             </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_or">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>OR</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_18">
+          <item>
+           <widget class="QLabel" name="label_models">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Select Segmentation Models: </string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="ctkCheckableComboBox" name="ModelCheckableComboBox">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="openModelButton">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>+</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_19">
+          <item>
+           <widget class="QLabel" name="label_views">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Instantiate Views:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="threedCheckbox">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>3D Views</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="twodCheckbox">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>2D View</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_20">
+          <item>
+           <widget class="QLabel" name="label_layout">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Instantiate Vertical Layout (optional):</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="checkBoxVertical">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_3">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::Fixed</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>12</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="ctkCollapsibleButton" name="OptionsCollapsibleButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Options</string>
+            </property>
+            <property name="collapsed">
+             <bool>true</bool>
+            </property>
+            <property name="collapsedHeight">
+             <number>2</number>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_3">
+             <item>
+              <layout class="QVBoxLayout" name="verticalLayout_2">
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_5">
+                 <item>
+                  <widget class="QLabel" name="label_4">
+                   <property name="text">
+                    <string>Link Views:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="link3DViewCheckBox">
+                   <property name="text">
+                    <string>3D Views</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="link2DViewCheckBox">
+                   <property name="text">
+                    <string>2D Views</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout">
+                 <item>
+                  <widget class="QLabel" name="label_segRepresentation">
+                   <property name="text">
+                    <string>Change Segmentation representation to Outline:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="outlineCheckBox">
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_2">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_6">
+          <item>
+           <widget class="ctkCollapsibleButton" name="segmentBySegmentCollapsibleButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Segment by Segment Comparison</string>
+            </property>
+            <property name="collapsed">
+             <bool>false</bool>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_6">
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_7">
+               <item>
+                <widget class="QLabel" name="lableSegmentationGroup">
+                 <property name="maximumSize">
+                  <size>
+                   <width>250</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>Select Segmentation Group:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="segmentGroupComboBox"/>
+               </item>
+               <item>
+                <widget class="QPushButton" name="openGroupButton">
+                 <property name="maximumSize">
+                  <size>
+                   <width>50</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                 <property name="text">
+                  <string>+</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_8">
+               <item>
+                <widget class="QLabel" name="semiTransparent_label">
+                 <property name="text">
+                  <string>Show neighboring segments semi-transparent:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="showNeighboringcheckBoxMultiple">
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_3">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_9">
+               <item>
+                <widget class="QTableWidget" name="segmentationTableWidget">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>150</height>
+                  </size>
+                 </property>
+                 <property name="columnCount">
+                  <number>9</number>
+                 </property>
+                 <attribute name="horizontalHeaderVisible">
+                  <bool>true</bool>
+                 </attribute>
+                 <attribute name="horizontalHeaderCascadingSectionResizes">
+                  <bool>true</bool>
+                 </attribute>
+                 <attribute name="horizontalHeaderDefaultSectionSize">
+                  <number>168</number>
+                 </attribute>
+                 <column>
+                  <property name="text">
+                   <string/>
+                  </property>
+                  <property name="icon">
+                   <iconset>
+                    <normaloff>../../../../../../../../.designer/Icons/SlicerVisibleInvisible.png</normaloff>../../../../../../../../.designer/Icons/SlicerVisibleInvisible.png</iconset>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string/>
+                  </property>
+                  <property name="icon">
+                   <iconset>
+                    <normaloff>../../../../../../../../.designer/Icons/SlicerAddTransform.png</normaloff>../../../../../../../../.designer/Icons/SlicerAddTransform.png</iconset>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Opacity</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Name</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string>Amount</string>
+                  </property>
+                 </column>
+                 <column/>
+                 <column/>
+                 <column/>
+                 <column/>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <spacer name="verticalSpacer_4">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Fixed</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>8</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_13">
+               <item>
+                <widget class="QPushButton" name="previousButton_comparison">
+                 <property name="text">
+                  <string>Previous</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="nextButton_comparison">
+                 <property name="text">
+                  <string>Next</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
            </widget>
           </item>
          </layout>

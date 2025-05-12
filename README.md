@@ -23,6 +23,8 @@ For reference, the related [Slicer Project Week #41 project page](https://github
 ---
 
 ### Segmentation Verification   
+https://github.com/NA-MIC/ProjectWeek/assets/1325980/77379558-be9d-4c17-a1a9-a38f78384d4b
+
 3. Select the new segmentation if it is not already selected
 4. Click on any segment to show only that one in the slice views and the 3D view as well
 

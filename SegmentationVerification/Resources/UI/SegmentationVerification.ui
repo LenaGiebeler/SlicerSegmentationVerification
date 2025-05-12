@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1496</width>
-    <height>979</height>
+    <height>870</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -484,7 +484,7 @@
              <string>Segment by Segment Comparison</string>
             </property>
             <property name="collapsed">
-             <bool>false</bool>
+             <bool>true</bool>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_6">
              <item>

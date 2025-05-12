@@ -38,6 +38,7 @@ Other options:
 
 ### Segmentation Comparison
 
+https://github.com/user-attachments/assets/09beeba5-b8fc-4ca2-9b52-b1d30368fdfb
 
 3. Select the volume you want to review
 4. Select one or more segmentations (The dropdown menu displays all loaded segmentations associated with the selected volume) OR select one or more segmentation models to initialize individual 3D views for each selected item
